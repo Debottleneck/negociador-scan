@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Escanear Frasco</title>
+<script src="https://unpkg.com/[email protected]/html5-qrcode.min.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #181b22;
+    --accent: #3aa9ff;
+    --accent-dim: #1f3a52;
+    --text: #f0f2f5;
+    --text-dim: #9aa3b2;
+    --good: #2ecc71;
+    --warn: #f5a623;
+    --danger: #e74c3c;
+    --border: #2a2e38;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; }
+  .screen.active { display: block; }
+
+  h1 {
+    font-size: 20px;
+    margin: 4px 0 16px;
+    font-weight: 600;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin: -10px 0 16px;
+  }
+
+  /* --- Scan screen --- */
+  #reader {
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #000;
+  }
+  #reader video { border-radius: 14px; }
+
+  .scan-status {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    margin: 12px 0;
+    min-height: 20px;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin: 20px 0 14px;
+  }
+  .divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid var(--border);
+  }
+  .divider span { padding: 0 10px; }
+
+  .manual-entry { display: flex; gap: 8px; }
+  .manual-entry input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 16px;
+    padding: 14px;
+    border-radius: 10px;
+    outline: none;
+  }
+  .manual-entry input:focus { border-color: var(--accent); }
+  .manual-entry button {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: none;
+    border-radius: 10px;
+    padding: 0 18px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  /* --- Confirm screen --- */
+  .ndc-display {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .ndc-display .label {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .ndc-display .value {
+    font-size: 30px;
+    font-weight: 700;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 1px;
+  }
+
+  .btn-row { display: flex; gap: 10px; }
+  .btn {
+    flex: 1;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+
+  /* --- Location screen --- */
+  .loc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .loc-btn {
+    aspect-ratio: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .loc-btn:active, .loc-btn.selected {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* --- Submitting / done screens --- */
+  .center-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    text-align: center;
+  }
+  .icon-circle {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 16px;
+  }
+  .icon-circle.good { background: rgba(46, 204, 113, 0.15); color: var(--good); }
+  .icon-circle.spin {
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .summary-line {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin-top: 6px;
+  }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 15px;
+    padding: 6px 0;
+  }
+
+  .error-banner {
+    background: rgba(231, 76, 60, 0.12);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    color: #ff8478;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    margin-bottom: 14px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+  <!-- SCREEN 1: Scan -->
+  <div class="screen active" id="screen-scan">
+    <h1>Escanear Frasco</h1>
+    <div class="subtitle">Apunte la cámara al código de barras del frasco</div>
+    <div id="reader"></div>
+    <div class="scan-status" id="scan-status">Buscando código...</div>
+
+    <div class="divider"><span>o ingrese manualmente</span></div>
+    <div class="manual-entry">
+      <input type="text" id="manual-ndc" placeholder="NDC (ej. 59651-0723-01)" inputmode="numeric">
+      <button id="manual-submit-btn">OK</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: Confirm NDC -->
+  <div class="screen" id="screen-confirm">
+    <div class="top-bar">
+      <button class="back-btn" id="confirm-back-btn">‹ Atrás</button>
+    </div>
+    <h1>Confirmar Código</h1>
+    <div class="ndc-display">
+      <div class="label">NDC Detectado</div>
+      <div class="value" id="confirm-ndc-value">--</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="confirm-edit-btn">Corregir</button>
+      <button class="btn btn-primary" id="confirm-yes-btn">Confirmar</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: Location -->
+  <div class="screen" id="screen-location">
+    <div class="top-bar">
+      <button class="back-btn" id="location-back-btn">‹ Atrás</button>
+    </div>
+    <h1>¿Cuál Localidad?</h1>
+    <div class="error-banner" id="location-error">No se pudo enviar. Verifique su conexión e intente de nuevo.</div>
+    <div class="loc-grid">
+      <button class="loc-btn" data-loc="I">I</button>
+      <button class="loc-btn" data-loc="II">II</button>
+      <button class="loc-btn" data-loc="III">III</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: Submitting -->
+  <div class="screen" id="screen-submitting">
+    <div class="center-screen">
+      <div class="icon-circle spin"></div>
+      <div>Enviando...</div>
+    </div>
+  </div>
+
+  <!-- SCREEN 5: Done -->
+  <div class="screen" id="screen-done">
+    <div class="center-screen">
+      <div class="icon-circle good">✓</div>
+      <div><strong>Reportado</strong></div>
+      <div class="summary-line" id="done-summary">NDC · Localidad</div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Telegram Web App init ----
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+  }
+
+  // ---- State ----
+  var state = {
+    ndc: null,
+    location: null
+  };
+
+  // ---- Screen navigation ----
+  function showScreen(id) {
+    var screens = document.querySelectorAll(".screen");
+    for (var i = 0; i < screens.length; i++) {
+      screens[i].classList.remove("active");
+    }
+    document.getElementById(id).classList.add("active");
+  }
+
+  // ---- NDC validation/cleanup ----
+  // Accepts raw scanned strings or manual entry; strips non-digits except
+  // dashes for display, keeps a digits-only version for validation.
+  function cleanNdcInput(raw) {
+    return raw.trim();
+  }
+
+  function digitsOnly(s) {
+    return s.replace(/[^0-9]/g, "");
+  }
+
+  function isPlausibleNdc(raw) {
+    var digits = digitsOnly(raw);
+    // NDC is 10 or 11 digits depending on format/leading-zero padding.
+    // We deliberately keep this loose -- the confirm screen is the real
+    // safety check, not this filter. We just reject obvious garbage
+    // (too short to be any barcode payload).
+    return digits.length >= 8 && digits.length <= 14;
+  }
+
+  // ---- html5-qrcode setup ----
+  var scanStatusEl = document.getElementById("scan-status");
+  var html5QrCode = null;
+  var scannerRunning = false;
+  var lastDetectedRaw = null;
+
+  function startScanner() {
+    if (scannerRunning) return;
+    html5QrCode = new Html5Qrcode("reader");
+
+    var config = {
+      fps: 10,
+      qrbox: { width: 280, height: 120 },
+      aspectRatio: 1.5,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39
+      ]
+    };
+
+    html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      onScanSuccess,
+      onScanFailure
+    ).then(function () {
+      scannerRunning = true;
+      scanStatusEl.textContent = "Buscando código...";
+    }).catch(function (err) {
+      scanStatusEl.textContent = "No se pudo abrir la cámara. Use entrada manual abajo.";
+      console.error("Camera start error:", err);
+    });
+  }
+
+  function stopScanner() {
+    if (html5QrCode && scannerRunning) {
+      html5QrCode.stop().then(function () {
+        scannerRunning = false;
+      }).catch(function (err) {
+        console.error("Camera stop error:", err);
+        scannerRunning = false;
+      });
+    }
+  }
+
+  function onScanSuccess(decodedText) {
+    // Avoid double-firing on the same frame burst.
+    if (decodedText === lastDetectedRaw) return;
+    lastDetectedRaw = decodedText;
+
+    if (!isPlausibleNdc(decodedText)) {
+      // Keep scanning silently -- don't interrupt the tech for a stray
+      // barcode-shaped thing that isn't NDC-length.
+      return;
+    }
+
+    stopScanner();
+    goToConfirm(decodedText);
+  }
+
+  function onScanFailure() {
+    // Called continuously while no code is found in a frame -- normal,
+    // not an error. Intentionally no-op.
+  }
+
+  // ---- Confirm screen ----
+  var confirmNdcValueEl = document.getElementById("confirm-ndc-value");
+
+  function goToConfirm(rawValue) {
+    state.ndc = cleanNdcInput(rawValue);
+    confirmNdcValueEl.textContent = state.ndc;
+    showScreen("screen-confirm");
+  }
+
+  document.getElementById("confirm-yes-btn").addEventListener("click", function () {
+    showScreen("screen-location");
+  });
+
+  document.getElementById("confirm-edit-btn").addEventListener("click", function () {
+    // Send them back to scan screen with manual field pre-filled so they
+    // can correct a bad decode without retyping from scratch.
+    document.getElementById("manual-ndc").value = state.ndc || "";
+    showScreen("screen-scan");
+    startScanner();
+  });
+
+  document.getElementById("confirm-back-btn").addEventListener("click", function () {
+    showScreen("screen-scan");
+    startScanner();
+  });
+
+  // ---- Manual entry ----
+  document.getElementById("manual-submit-btn").addEventListener("click", function () {
+    var raw = document.getElementById("manual-ndc").value;
+    if (!raw || !isPlausibleNdc(raw)) {
+      scanStatusEl.textContent = "Ingrese un NDC válido.";
+      return;
+    }
+    stopScanner();
+    goToConfirm(raw);
+  });
+
+  document.getElementById("manual-ndc").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      document.getElementById("manual-submit-btn").click();
+    }
+  });
+
+  // ---- Location screen ----
+  document.getElementById("location-back-btn").addEventListener("click", function () {
+    showScreen("screen-confirm");
+  });
+
+  var locButtons = document.querySelectorAll(".loc-btn");
+  for (var i = 0; i < locButtons.length; i++) {
+    locButtons[i].addEventListener("click", function (e) {
+      var loc = e.currentTarget.getAttribute("data-loc");
+      state.location = loc;
+      submitReport();
+    });
+  }
+
+  // ---- Submission ----
+  function submitReport() {
+    document.getElementById("location-error").style.display = "none";
+    showScreen("screen-submitting");
+
+    var payload = {
+      ndc: state.ndc,
+      location: state.location,
+      ts: new Date().toISOString()
+    };
+
+    if (!tg || !tg.sendData) {
+      // Not running inside Telegram (e.g. testing in a normal browser).
+      // Fail loudly so this is never mistaken for a real submission.
+      console.warn("Telegram.WebApp.sendData unavailable -- not running inside Telegram. Payload:", payload);
+      showScreen("screen-location");
+      document.getElementById("location-error").style.display = "block";
+      return;
+    }
+
+    try {
+      tg.sendData(JSON.stringify(payload));
+      // sendData closes the Web App automatically on most clients once
+      // the bot receives it. We still render a done screen in case it
+      // doesn't close immediately, and as a fallback for edge cases.
+      document.getElementById("done-summary").textContent =
+        "NDC " + state.ndc + " · Localidad " + state.location;
+      showScreen("screen-done");
+
+      // Give the UI a beat to render before Telegram closes the window.
+      setTimeout(function () {
+        if (tg.close) tg.close();
+      }, 600);
+    } catch (err) {
+      console.error("sendData failed:", err);
+      showScreen("screen-location");
+      document.getElementById("location-error").style.display = "block";
+    }
+  }
+
+  // ---- Init ----
+  startScanner();
+})();
+</script>
+</body>
+</html>
