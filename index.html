@@ -261,7 +261,6 @@
       <button class="loc-btn" data-loc="II">II</button>
       <button class="loc-btn" data-loc="III">III</button>
     </div>
-    <div id="loc-debug" style="font-size:11px; color:#5a6273; word-break:break-all; margin-top:16px;"></div>
   </div>
 
   <!-- SCREEN 4: Submitting -->
@@ -278,7 +277,6 @@
       <div class="icon-circle good">✓</div>
       <div><strong>Reportado</strong></div>
       <div class="summary-line" id="done-summary">NDC · Localidad</div>
-      <div id="done-debug" style="font-size:11px; color:#5a6273; word-break:break-all; margin-top:16px;"></div>
     </div>
   </div>
 
@@ -484,17 +482,17 @@
       ts: new Date().toISOString()
     };
 
-    // TEMP DIAGNOSTIC: show real values regardless of outcome, so we can
-    // see exactly what Telegram's SDK reports in this environment instead
-    // of guessing. Remove once the real check is confirmed working.
-    var diagText = "tg=" + !!tg + " initData='" + (tg ? tg.initData : "n/a") + "' platform=" + (tg ? tg.platform : "n/a") + " version=" + (tg ? tg.version : "n/a");
-    console.log("[scan-debug]", diagText);
-
+    // We check initData (not just whether sendData exists as a function)
+    // because the Telegram SDK script defines sendData as a stub even when
+    // the page is opened outside a real Telegram session (e.g. a normal
+    // browser tab). initData is only populated when Telegram itself
+    // actually launches this page as a Mini App with a real session.
+    // Confirmed via testing: initData='' and platform='unknown' outside
+    // Telegram, vs. a real session value inside it.
     if (!tg || !tg.sendData || !tg.initData) {
       console.warn("Not running inside a real Telegram session (initData empty). Payload:", payload);
       showScreen("screen-location");
       document.getElementById("location-error").style.display = "block";
-      document.getElementById("location-error").textContent = diagText;
       return;
     }
 
@@ -505,14 +503,12 @@
       // doesn't close immediately, and as a fallback for edge cases.
       document.getElementById("done-summary").textContent =
         "NDC " + state.ndc + " · Localidad " + state.location;
-      document.getElementById("done-debug").textContent = diagText;
       showScreen("screen-done");
 
-      // TEMP: auto-close disabled while diagnosing, so the debug line
-      // stays on screen long enough to read instead of disappearing.
-      // setTimeout(function () {
-      //   if (tg.close) tg.close();
-      // }, 600);
+      // Give the UI a beat to render before Telegram closes the window.
+      setTimeout(function () {
+        if (tg.close) tg.close();
+      }, 600);
     } catch (err) {
       console.error("sendData failed:", err);
       showScreen("screen-location");
