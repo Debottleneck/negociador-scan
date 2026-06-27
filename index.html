@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Escanear Frasco</title>
-<script src="https://unpkg.com/[email protected]/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/[email protected]/dist/html5-qrcode.min.js"></script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root {
@@ -224,6 +224,7 @@
     <div class="subtitle">Apunte la cámara al código de barras del frasco</div>
     <div id="reader"></div>
     <div class="scan-status" id="scan-status">Buscando código...</div>
+    <div class="scan-status" id="debug-status" style="font-size:11px; color:#5a6273; word-break:break-all;"></div>
 
     <div class="divider"><span>o ingrese manualmente</span></div>
     <div class="manual-entry">
@@ -283,11 +284,28 @@
 (function () {
   "use strict";
 
+  // ---- Visible debug log (so issues show up on-screen without a console) ----
+  var debugEl = null;
+  function debugLog(msg) {
+    if (!debugEl) debugEl = document.getElementById("debug-status");
+    if (debugEl) debugEl.textContent = msg;
+    console.log("[scan-debug]", msg);
+  }
+  window.addEventListener("error", function (e) {
+    debugLog("Error: " + (e.message || "unknown") + " @ " + (e.filename || "") + ":" + (e.lineno || ""));
+  });
+
+  debugLog("Cargando...");
+
   // ---- Telegram Web App init ----
   var tg = window.Telegram && window.Telegram.WebApp;
   if (tg) {
     tg.ready();
     tg.expand();
+  }
+
+  if (typeof Html5Qrcode === "undefined") {
+    debugLog("ERROR: la librería html5-qrcode no cargó (revisar conexión/CDN).");
   }
 
   // ---- State ----
@@ -333,6 +351,7 @@
 
   function startScanner() {
     if (scannerRunning) return;
+    debugLog("Iniciando cámara...");
     html5QrCode = new Html5Qrcode("reader");
 
     var config = {
@@ -356,8 +375,10 @@
     ).then(function () {
       scannerRunning = true;
       scanStatusEl.textContent = "Buscando código...";
+      debugLog("Cámara activa.");
     }).catch(function (err) {
       scanStatusEl.textContent = "No se pudo abrir la cámara. Use entrada manual abajo.";
+      debugLog("ERROR cámara: " + (err && err.message ? err.message : String(err)));
       console.error("Camera start error:", err);
     });
   }
