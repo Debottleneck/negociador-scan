@@ -482,10 +482,16 @@
       ts: new Date().toISOString()
     };
 
-    if (!tg || !tg.sendData) {
-      // Not running inside Telegram (e.g. testing in a normal browser).
-      // Fail loudly so this is never mistaken for a real submission.
-      console.warn("Telegram.WebApp.sendData unavailable -- not running inside Telegram. Payload:", payload);
+    // We check initData (not just whether sendData exists as a function)
+    // because the Telegram SDK script defines sendData as a stub even when
+    // the page is opened outside a real Telegram session (e.g. a normal
+    // browser tab, or an in-app browser like Mail's). initData is only
+    // populated when Telegram itself actually launched this page as a
+    // Mini App with a real session. Checking sendData alone caused a
+    // false "success" screen during testing outside Telegram -- this is
+    // the fix for that.
+    if (!tg || !tg.sendData || !tg.initData) {
+      console.warn("Not running inside a real Telegram session (initData empty). Payload:", payload);
       showScreen("screen-location");
       document.getElementById("location-error").style.display = "block";
       return;
