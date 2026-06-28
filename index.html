@@ -488,19 +488,20 @@
       ts: new Date().toISOString()
     };
 
-    // DIAGNOSTIC LINE (temporary -- added to find the silent-failure bug,
-    // remove once the real cause is confirmed and fixed).
-    debugLog("submit check: tg=" + !!tg + " sendData=" + !!(tg && tg.sendData) + " initData.len=" + (tg && tg.initData ? tg.initData.length : "N/A"));
+    // CORRECTED (Jun 28 2026, confirmed against Telegram's own official docs
+    // at core.telegram.org/bots/webapps): WebAppInitData is EMPTY BY DESIGN
+    // for Mini Apps launched via a keyboard button -- this is documented,
+    // expected behavior, not a failure. sendData() is ALSO documented to
+    // only work for keyboard-button launches. So initData being empty is
+    // actually a GOOD sign here, not a reason to bail out.
+    // The old check (requiring tg.initData to be truthy) was backwards: it
+    // rejected the exact condition a correctly-launched keyboard-button
+    // Mini App is supposed to have, which is why every prior submission
+    // silently failed to register as a real session.
+    debugLog("submit check: tg=" + !!tg + " sendData=" + !!(tg && tg.sendData));
 
-    // We check initData (not just whether sendData exists as a function)
-    // because the Telegram SDK script defines sendData as a stub even when
-    // the page is opened outside a real Telegram session (e.g. a normal
-    // browser tab). initData is only populated when Telegram itself
-    // actually launches this page as a Mini App with a real session.
-    // Confirmed via testing: initData='' and platform='unknown' outside
-    // Telegram, vs. a real session value inside it.
-    if (!tg || !tg.sendData || !tg.initData) {
-      console.warn("Not running inside a real Telegram session (initData empty). Payload:", payload);
+    if (!tg || !tg.sendData) {
+      console.warn("Telegram WebApp SDK not available or sendData missing. Payload:", payload);
       showScreen("screen-location");
       document.getElementById("location-error").style.display = "block";
       return;
