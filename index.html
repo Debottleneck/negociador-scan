@@ -482,6 +482,10 @@
       ts: new Date().toISOString()
     };
 
+    // DIAGNOSTIC LINE (temporary -- added to find the silent-failure bug,
+    // remove once the real cause is confirmed and fixed).
+    debugLog("submit check: tg=" + !!tg + " sendData=" + !!(tg && tg.sendData) + " initData.len=" + (tg && tg.initData ? tg.initData.length : "N/A"));
+
     // We check initData (not just whether sendData exists as a function)
     // because the Telegram SDK script defines sendData as a stub even when
     // the page is opened outside a real Telegram session (e.g. a normal
