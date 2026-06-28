@@ -507,20 +507,25 @@
     }
 
     try {
+      debugLog("DIAGNOSTIC: about to call tg.sendData() now. Payload: " + JSON.stringify(payload));
       tg.sendData(JSON.stringify(payload));
-      // sendData closes the Web App automatically on most clients once
-      // the bot receives it. We still render a done screen in case it
-      // doesn't close immediately, and as a fallback for edge cases.
-      document.getElementById("done-summary").textContent =
-        "NDC " + state.ndc + " · Localidad " + state.location;
-      showScreen("screen-done");
+      debugLog("DIAGNOSTIC: tg.sendData() returned with no thrown error. Staying on this screen 8s -- check the Eruda console now.");
 
-      // Give the UI a beat to render before Telegram closes the window.
+      // DIAGNOSTIC PAUSE (temporary): stay on the submitting screen for
+      // 8 full seconds, and do NOT auto-close, so there is real time to
+      // open the Eruda console and read it before anything navigates away.
+      // Remove this whole setTimeout wrapper (and the auto-close below)
+      // once the real cause is found and fixed.
       setTimeout(function () {
-        if (tg.close) tg.close();
-      }, 600);
+        document.getElementById("done-summary").textContent =
+          "NDC " + state.ndc + " · Localidad " + state.location;
+        showScreen("screen-done");
+        // Auto-close intentionally disabled during diagnostics.
+        // if (tg.close) tg.close();
+      }, 8000);
     } catch (err) {
       console.error("sendData failed:", err);
+      debugLog("DIAGNOSTIC: tg.sendData() THREW an error: " + (err && err.message ? err.message : String(err)));
       showScreen("screen-location");
       document.getElementById("location-error").style.display = "block";
     }
