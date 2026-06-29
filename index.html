@@ -280,12 +280,6 @@
     </div>
   </div>
 
-<script src="//cdn.jsdelivr.net/npm/eruda"></script>
-<script>
-  // Eruda: real on-page DevTools console, floating icon bottom-right.
-  // Temporary, added for debugging the silent sendData() failure.
-  eruda.init();
-</script>
 <script>
 (function () {
   "use strict";
@@ -488,17 +482,11 @@
       ts: new Date().toISOString()
     };
 
-    // CORRECTED (Jun 28 2026, confirmed against Telegram's own official docs
-    // at core.telegram.org/bots/webapps): WebAppInitData is EMPTY BY DESIGN
-    // for Mini Apps launched via a keyboard button -- this is documented,
-    // expected behavior, not a failure. sendData() is ALSO documented to
-    // only work for keyboard-button launches. So initData being empty is
-    // actually a GOOD sign here, not a reason to bail out.
-    // The old check (requiring tg.initData to be truthy) was backwards: it
-    // rejected the exact condition a correctly-launched keyboard-button
-    // Mini App is supposed to have, which is why every prior submission
-    // silently failed to register as a real session.
-    debugLog("submit check: tg=" + !!tg + " sendData=" + !!(tg && tg.sendData));
+    // WebAppInitData is empty by design for Mini Apps launched via a
+    // keyboard button (confirmed against core.telegram.org/bots/webapps).
+    // sendData() only works for keyboard-button launches, so we check for
+    // its presence, not initData.
+    debugLog("Enviando...");
 
     if (!tg || !tg.sendData) {
       console.warn("Telegram WebApp SDK not available or sendData missing. Payload:", payload);
@@ -508,25 +496,17 @@
     }
 
     try {
-      debugLog("DIAGNOSTIC: about to call tg.sendData() now. Payload: " + JSON.stringify(payload));
       tg.sendData(JSON.stringify(payload));
-      debugLog("DIAGNOSTIC: tg.sendData() returned with no thrown error. Staying on this screen 8s -- check the Eruda console now.");
-
-      // DIAGNOSTIC PAUSE (temporary): stay on the submitting screen for
-      // 8 full seconds, and do NOT auto-close, so there is real time to
-      // open the Eruda console and read it before anything navigates away.
-      // Remove this whole setTimeout wrapper (and the auto-close below)
-      // once the real cause is found and fixed.
+      document.getElementById("done-summary").textContent =
+        "NDC " + state.ndc + " \u00b7 Localidad " + state.location;
+      showScreen("screen-done");
+      debugLog("Enviado.");
       setTimeout(function () {
-        document.getElementById("done-summary").textContent =
-          "NDC " + state.ndc + " · Localidad " + state.location;
-        showScreen("screen-done");
-        // Auto-close intentionally disabled during diagnostics.
-        // if (tg.close) tg.close();
-      }, 8000);
+        if (tg.close) tg.close();
+      }, 1200);
     } catch (err) {
       console.error("sendData failed:", err);
-      debugLog("DIAGNOSTIC: tg.sendData() THREW an error: " + (err && err.message ? err.message : String(err)));
+      debugLog("Error al enviar.");
       showScreen("screen-location");
       document.getElementById("location-error").style.display = "block";
     }
