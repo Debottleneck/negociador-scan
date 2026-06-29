@@ -326,8 +326,26 @@
   // ---- NDC validation/cleanup ----
   // Accepts raw scanned strings or manual entry; strips non-digits except
   // dashes for display, keeps a digits-only version for validation.
+  //
+  // Copy-pasted NDCs can carry invisible characters picked up from wherever
+  // they were copied (zero-width spaces/joiners, non-breaking spaces, BOM,
+  // smart-formatting artifacts from Notes/Pages/Word, etc.). These are
+  // invisible on screen, look like a perfectly normal NDC to the tech, but
+  // can break strict length/format checks downstream. Strip them here, once,
+  // at the point of entry -- so every screen, the payload, and the backend
+  // all see the same clean string the tech actually sees on screen.
+  function stripInvisibleChars(s) {
+    // Zero-width space/non-joiner/joiner/BOM, and other invisible
+    // format-control characters in the same Unicode block.
+    s = s.replace(/[\u200B-\u200F\uFEFF\u2060-\u2064]/g, "");
+    // Non-breaking space and other Unicode space variants -> normal space,
+    // so a later .trim() can actually catch them.
+    s = s.replace(/[\u00A0\u202F]/g, " ");
+    return s;
+  }
+
   function cleanNdcInput(raw) {
-    return raw.trim();
+    return stripInvisibleChars(raw).trim();
   }
 
   function digitsOnly(s) {
