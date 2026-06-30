@@ -240,7 +240,7 @@
     </div>
     <h1>Confirmar Código</h1>
     <div class="ndc-display">
-      <div class="label">NDC Detectado</div>
+      <div class="label">Código Detectado</div>
       <div class="value" id="confirm-ndc-value">--</div>
     </div>
     <div class="btn-row">
@@ -356,10 +356,20 @@
   // screen, the payload, and every portal downstream see the same
   // correct NDC -- and "NDC Detectado" is always telling the truth.
   function upcToNdc(cleaned) {
+    // A 12-digit pharmacy UPC is: "3" (drug product code) + 10 raw NDC
+    // digits + 1 UPC check digit. We strip both the leading "3" and the
+    // trailing check digit, leaving the true 10 raw NDC digits.
+    //
+    // IMPORTANT: those 10 raw digits are ambiguous on their own -- FDA
+    // labelers use one of three segment formats (4-4-2, 5-3-2, 5-4-1),
+    // and which applies depends on the specific labeler. We deliberately
+    // do NOT guess the padding here. The backend resolves the correct
+    // padding against the real FDA NDC Directory (see
+    // resolve_padded_ndc() in ndc_lookup.py) before querying any portal.
+    // This function's job is just: UPC -> the true 10 raw digits.
     var digits = digitsOnly(cleaned);
     if (digits.length === 12 && digits[0] === "3") {
-      var ndc11 = digits.slice(1);
-      return ndc11.slice(0, 5) + "-" + ndc11.slice(5, 9) + "-" + ndc11.slice(9, 11);
+      return digits.slice(1, 11); // drop leading "3" and trailing check digit
     }
     // Not a recognized scanned-UPC pattern (e.g. already a dashed NDC
     // typed manually) -- leave untouched.
