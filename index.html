@@ -348,6 +348,24 @@
     return stripInvisibleChars(raw).trim();
   }
 
+  // Pharmacy bottle barcodes encode a UPC, not the raw NDC: a leading "3"
+  // is prepended to the 11-digit padded NDC to form a 12-digit UPC-A.
+  // Drogueria portals like Cardinal/Betances accept the UPC form, but
+  // Drugs Unlimited requires the true dashed NDC (5-4-2). We normalize
+  // every scanned/typed value to that 5-4-2 NDC here, once, so every
+  // screen, the payload, and every portal downstream see the same
+  // correct NDC -- and "NDC Detectado" is always telling the truth.
+  function upcToNdc(cleaned) {
+    var digits = digitsOnly(cleaned);
+    if (digits.length === 12 && digits[0] === "3") {
+      var ndc11 = digits.slice(1);
+      return ndc11.slice(0, 5) + "-" + ndc11.slice(5, 9) + "-" + ndc11.slice(9, 11);
+    }
+    // Not a recognized scanned-UPC pattern (e.g. already a dashed NDC
+    // typed manually) -- leave untouched.
+    return cleaned;
+  }
+
   function digitsOnly(s) {
     return s.replace(/[^0-9]/g, "");
   }
@@ -436,7 +454,7 @@
   var confirmNdcValueEl = document.getElementById("confirm-ndc-value");
 
   function goToConfirm(rawValue) {
-    state.ndc = cleanNdcInput(rawValue);
+    state.ndc = upcToNdc(cleanNdcInput(rawValue));
     confirmNdcValueEl.textContent = state.ndc;
     showScreen("screen-confirm");
   }
